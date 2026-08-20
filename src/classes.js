@@ -8,13 +8,11 @@ class Ship {
   }
   hit() {
     this.hits += 1;
+    return this;
   }
   isSunk() {
-    if (this.hits == this.length) {
-      this.hasSunk = true;
-    } else {
-      this.hasSunk = false;
-    }
+    this.hasSunk = this.hits == this.length;
+    return this;
   }
 }
 class Gameboard {
@@ -29,21 +27,35 @@ class Gameboard {
     this.missedAttacks = 0;
   }
   placeShip(length, row, col, axis) {
-    if (axis == "x" && col + length < 11) {
+    if (axis == "x") {
+      if (col + length > 10) return false;
+      for (let i = 0; i < length; i++) {
+        if (this.board[row][col + i] === 1) return false;
+      }
       const ship = new Ship(length, 0, false);
       this.ships.push(ship);
       for (let i = 0; i < length; i++) {
         this.board[row][col + i] = 1;
-        this.cellToShip[`${r},${c}`] = ship;
+        this.cellToShip[`${row},${col + i}`] = ship;
       }
-    } else if (row + length < 11) {
+      return true;
+    } else {
+      if (row + length > 10) return false;
+      for (let i = 0; i < length; i++) {
+        if (this.board[row + i][col] === 1) return false;
+      }
       const ship = new Ship(length, 0, false);
       this.ships.push(ship);
       for (let i = 0; i < length; i++) {
         this.board[row + i][col] = 1;
-        this.cellToShip[`${r},${c}`] = ship;
+        this.cellToShip[`${row + i},${col}`] = ship;
       }
+      return true;
     }
+  }
+
+  allSunk() {
+    return this.ships.every((ship) => ship.hasSunk);
   }
 
   recieveAttack(row, col) {
@@ -55,6 +67,31 @@ class Gameboard {
       this.cellToShip[`${row},${col}`].hit().isSunk();
     }
   }
+
+  autoPlaceFleet() {
+    const fleet = [5, 4, 3, 3, 2];
+    for (const length of fleet) {
+      let placed = false;
+      while (!placed) {
+        const row = Math.floor(Math.random() * 10);
+        const col = Math.floor(Math.random() * 10);
+        const axis = Math.random() < 0.5 ? "x" : "y";
+        placed = this.placeShip(length, row, col, axis);
+      }
+    }
+  }
+
+  getUnfiredCells() {
+    const cells = [];
+    for (let r = 0; r < 10; r++) {
+      for (let c = 0; c < 10; c++) {
+        if (this.board[r][c] === 0 || this.board[r][c] === 1) {
+          cells.push([r, c]);
+        }
+      }
+    }
+    return cells;
+  }
 }
 
 class Player {
@@ -65,5 +102,17 @@ class Player {
     } else {
       this.type = "computer";
     }
+  }
+  placeFleet() {
+    this.board.autoPlaceFleet();
+  }
+  randomAttack(enemyBoard) {
+    const cells = enemyBoard.getUnfiredCells();
+    const [row, col] = cells[Math.floor(Math.random() * cells.length)];
+    enemyBoard.recieveAttack(row, col);
+    return [row, col];
+  }
+  lost() {
+    return this.board.allSunk();
   }
 }
